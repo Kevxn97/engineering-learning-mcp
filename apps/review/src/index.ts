@@ -1,0 +1,10 @@
+import {loadConfig} from '../../../packages/core/src/config.js';
+import {Database} from '../../../packages/core/src/database.js';
+import {SecretScanner} from '../../../packages/core/src/security.js';
+import {KnowledgeService} from '../../../packages/core/src/knowledge.js';
+import {ReviewService} from '../../../packages/core/src/review.js';
+import {shutdown} from '../../../packages/core/src/http.js';
+import {createReviewApp} from './app.js';
+const config=loadConfig('review'),db=new Database(config.organizationId,config.databaseUrl,'review');await db.checkRole();
+const scanner=new SecretScanner(config.scannerBin,config.scannerConfig);await scanner.scan({startup:'scanner readiness check'});const options={reviewBase:config.reviewBase,publicDocsHosts:config.publicDocsHosts,issuer:config.issuer};
+const app=await createReviewApp(config,db,new ReviewService(db,scanner,options),new KnowledgeService(db,scanner,options));shutdown(app,()=>db.close());await app.listen({port:config.port,host:config.host});console.log(JSON.stringify({event:'listening',service:'review',port:config.port,profile:config.profile}));

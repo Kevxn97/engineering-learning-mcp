@@ -1,0 +1,92 @@
+# Local reference ONLY. Generate .local/ configuration before starting.
+name: engineering-learning-local
+x-common: &common
+  ELM_PROFILE: local
+  ELM_ORGANIZATION_ID: 10000000-0000-4000-8000-000000000001
+  ELM_ISSUER: http://localhost:8180/realms/engineering-learning
+  ELM_MCP_RESOURCE: http://localhost:4100/mcp
+  ELM_REVIEW_URL: http://localhost:4101
+  ELM_LOCAL_BACKCHANNEL_ORIGIN: http://keycloak:8080
+  ELM_ALLOWED_CLIENT_IDS: elm-test,elm-codex,elm-claude,elm-cursor
+  ELM_BIND_HOST: 0.0.0.0
+  ELM_GITLEAKS_BIN: /usr/local/bin/gitleaks
+  ELM_GITLEAKS_CONFIG: /app/config/gitleaks.toml
+services:
+  postgres:
+    image: postgres:18-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650
+    environment:
+      POSTGRES_DB: elm_local
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Generate local configuration}
+    ports: ['127.0.0.1:5432:5432']
+    volumes: ['pg-data:/var/lib/postgresql']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d elm_local']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c
+    command: ['start-dev', '--import-realm', '--hostname=http://localhost:8180', '--health-enabled=true']
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: synthetic-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Generate local configuration}
+    ports: ['127.0.0.1:8180:8080']
+    volumes: ['./.local/keycloak:/opt/keycloak/data/import:ro', 'kc-data:/opt/keycloak/data']
+    healthcheck:
+      test: ['CMD-SHELL', "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3; cat <&3 | grep -q '200 OK'"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+  migrate:
+    image: engineering-learning-local:dev
+    build: {context: ., dockerfile: deploy/Dockerfile}
+    command: ['node','dist/scripts/local-init.js']
+    environment:
+      ELM_PROFILE: local
+      ELM_ISSUER: http://localhost:8180/realms/engineering-learning
+      ELM_MIGRATION_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/elm_local
+      MCP_DB_PASSWORD: ${MCP_DB_PASSWORD}
+      REVIEW_DB_PASSWORD: ${REVIEW_DB_PASSWORD}
+      MAINTENANCE_DB_PASSWORD: ${MAINTENANCE_DB_PASSWORD}
+    depends_on:
+      postgres: {condition: service_healthy}
+  mcp:
+    image: engineering-learning-local:dev
+    environment:
+      <<: *common
+      ELM_PORT: 4100
+      ELM_ALLOWED_HOSTS: localhost:4100,127.0.0.1:4100,mcp:4100
+      ELM_MCP_DATABASE_URL: postgresql://elm_mcp:${MCP_DB_PASSWORD}@postgres:5432/elm_local
+    ports: ['127.0.0.1:4100:4100']
+    read_only: true
+    tmpfs: ['/tmp:size=16m,noexec,nosuid']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 100
+    mem_limit: 512m
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      keycloak: {condition: service_healthy}
+  review:
+    image: engineering-learning-local:dev
+    command: ['node','dist/apps/review/src/index.js']
+    environment:
+      <<: *common
+      ELM_PORT: 4101
+      ELM_ALLOWED_HOSTS: localhost:4101,127.0.0.1:4101,review:4101
+      ELM_REVIEW_DATABASE_URL: postgresql://elm_review:${REVIEW_DB_PASSWORD}@postgres:5432/elm_local
+      ELM_REVIEW_CLIENT_ID: elm-review
+      ELM_REVIEW_CLIENT_SECRET: ${REVIEW_CLIENT_SECRET}
+    ports: ['127.0.0.1:4101:4101']
+    read_only: true
+    tmpfs: ['/tmp:size=16m,noexec,nosuid']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 100
+    mem_limit: 512m
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      keycloak: {condition: service_healthy}
+volumes:
+  pg-data:
+  kc-data:

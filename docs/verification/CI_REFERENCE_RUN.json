@@ -1,0 +1,28 @@
+{
+  "verified_at": "2026-09-22T22:15:17Z",
+  "commit": "330bd3352929949fe7b3ace728d8f4c8506ca171",
+  "run_id": 35791190333,
+  "run_url": "https://github.com/Kevxn97/engineering-learning-mcp/actions/runs/35791190333",
+  "correctness_job": "passed",
+  "clean_install": "passed",
+  "typescript_and_tests": "passed",
+  "test_count": 46,
+  "source_secret_scan": "passed",
+  "dependency_audit_high_gate": "passed",
+  "sbom_generated": true,
+  "container_build": "passed",
+  "real_keycloak_http_oidc_flow": "passed",
+  "real_chromium_login_and_responsive_review_ui": "passed",
+  "screenshots": ["review-desktop.png", "review-mobile.png"],
+  "native_clients": {"Claude Code": "NOT VERIFIED", "Codex": "NOT VERIFIED", "Cursor": "NOT VERIFIED"},
+  "capacity_target": "NOT MET; nonblocking experiment, not part of correctness approval",
+  "capacity": {
+    "scope": "synthetic domain service + real PostgreSQL + real secret scanner; excludes HTTP/OAuth/IDE",
+    "node": "v24.20.0", "postgres": "18.6 (Debian 18.6-1.pgdg12+2)",
+    "cpu": "AMD EPYC 7763 64-Core Processor", "logical_cpus": 4, "memory_gib": 16,
+    "corpus": 10000, "users": 10, "target_rps": 10, "requests": 200,
+    "successes": 89, "errors": 111, "error_codes": {"RATE_LIMITED": 111},
+    "elapsed_ms": 20516, "p50_ms": 935, "p95_ms": 1020, "p99_ms": 1066
+  },
+  "shared_or_production_approval": false
+}

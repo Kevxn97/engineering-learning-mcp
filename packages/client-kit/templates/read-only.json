@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "engineering-learning": {
+      "url": "https://learning-mcp.example.invalid/mcp",
+      "auth": {"CLIENT_ID": "REPLACE_WITH_READ_ONLY_PUBLIC_CLIENT_ID", "scopes": ["knowledge:read"]}
+    }
+  }
+}

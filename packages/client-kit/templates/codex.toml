@@ -1,0 +1,5 @@
+# Merge manually into the approved configuration; do not replace existing servers.
+[mcp_servers.engineering-learning]
+url = "https://learning-mcp.example.invalid/mcp"
+# Set the pre-registered public OAuth client ID using the installed CLI's
+# documented --oauth-client-id option. See docs/CLIENTS.md. No token belongs here.

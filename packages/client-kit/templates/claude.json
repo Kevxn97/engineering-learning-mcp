@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "engineering-learning": {
+      "type": "http",
+      "url": "https://learning-mcp.example.invalid/mcp"
+    }
+  }
+}

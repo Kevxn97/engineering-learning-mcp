@@ -1,0 +1,54 @@
+{
+  "name": "engineering-learning-mcp",
+  "version": "0.1.0",
+  "description": "Standalone peer-reviewed engineering knowledge over MCP",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test --test-concurrency=1 dist/tests/*.test.js",
+    "test:e2e": "node --test --test-concurrency=1 dist/tests/oidc.e2e.js",
+    "verify": "npm run check && npm test && node scripts/check-boundaries.mjs && node scripts/client-kit.mjs --check",
+    "mcp": "node dist/apps/mcp/src/index.js",
+    "review": "node dist/apps/review/src/index.js",
+    "migrate": "node dist/scripts/migrate.js",
+    "seed:local": "node dist/scripts/seed.js",
+    "local:configure": "node scripts/local-config.mjs",
+    "scan": "gitleaks dir --config config/gitleaks.toml --redact --no-banner --ignore-gitleaks-allow .",
+    "sbom": "npm sbom --sbom-format cyclonedx",
+    "loadtest": "node dist/scripts/loadtest.js",
+    "maintenance": "node dist/scripts/maintenance.js",
+    "client:install": "node scripts/client-kit.mjs"
+  },
+  "license": "UNLICENSED",
+  "type": "module",
+  "dependencies": {
+    "@fastify/cookie": "11.1.2",
+    "@fastify/formbody": "9.0.0",
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/fastify": "2.0.0",
+    "@modelcontextprotocol/node": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "fastify": "5.12.5",
+    "jose": "6.2.12",
+    "openid-client": "6.8.8",
+    "pg": "8.23.0",
+    "semver": "7.8.5",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.13.6",
+    "@types/pg": "8.23.1",
+    "@types/semver": "7.8.0",
+    "typescript": "7.0.2"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "workspaces": [
+    "packages/core",
+    "apps/mcp",
+    "apps/review"
+  ]
+}
