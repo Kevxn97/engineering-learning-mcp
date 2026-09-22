@@ -1,0 +1,65 @@
+name: Import verified source
+on:
+  push:
+    branches: ['build/initial-implementation']
+    paths: ['.github/workflows/import-source.yml']
+permissions:
+  contents: read
+jobs:
+  import:
+    if: github.actor == github.repository_owner && github.repository == 'Kevxn97/engineering-learning-mcp'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: build/initial-implementation
+          persist-credentials: true
+      - name: Verify and extract source files only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, io, json, pathlib, shutil, tarfile
+          root = pathlib.Path.cwd()
+          manifest = json.loads((root / '.delivery/manifest.json').read_text())
+          expected = '41ce7b17c087da227776f65670f01f649e20a6f11229785d0c78eec734c27c4f'
+          assert manifest['sha256'] == expected
+          parts = []
+          for i in range(25):
+              chunk = (root / f'.delivery/part-{i:03d}.bin').read_bytes()
+              assert len(chunk) == (3072 if i < 24 else 2320)
+              parts.append(chunk)
+          archive = b''.join(parts)
+          assert len(archive) == 76048
+          assert hashlib.sha256(archive).hexdigest() == expected
+          with tarfile.open(fileobj=io.BytesIO(archive), mode='r:xz') as tar:
+              members = tar.getmembers()
+              assert len(members) == 75
+              assert sum(m.size for m in members) < 1_000_000
+              names = set()
+              for member in members:
+                  path = pathlib.PurePosixPath(member.name)
+                  assert member.isfile() and not path.is_absolute()
+                  assert '..' not in path.parts and path.parts[0] not in {'.git', '.github', '.local', '.delivery', 'node_modules', 'dist'}
+                  assert member.name not in names
+                  names.add(member.name)
+              for member in members:
+                  target = root / member.name
+                  assert not target.is_symlink()
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  data = tar.extractfile(member).read()
+                  data.decode('utf-8')
+                  target.write_bytes(data)
+                  target.chmod(0o755 if member.name == 'scripts/install-gitleaks.sh' else 0o644)
+          shutil.rmtree(root / '.delivery')
+          print('Imported 75 verified UTF-8 source files; removed temporary transfer chunks.')
+          PY
+      - name: Commit source to the authorized implementation branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Implement standalone review-gated engineering learning MCP'
+          git push origin HEAD:build/initial-implementation
