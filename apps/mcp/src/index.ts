@@ -1,0 +1,10 @@
+import {loadConfig} from '../../../packages/core/src/config.js';
+import {Database} from '../../../packages/core/src/database.js';
+import {SecretScanner} from '../../../packages/core/src/security.js';
+import {KnowledgeService} from '../../../packages/core/src/knowledge.js';
+import {shutdown} from '../../../packages/core/src/http.js';
+import {createMcpApp} from './app.js';
+const config=loadConfig('mcp');const db=new Database(config.organizationId,config.databaseUrl,'mcp');await db.checkRole();
+const scanner=new SecretScanner(config.scannerBin,config.scannerConfig);await scanner.scan({startup:'scanner readiness check'});
+const app=createMcpApp(config,db,new KnowledgeService(db,scanner,{reviewBase:config.reviewBase,publicDocsHosts:config.publicDocsHosts}));shutdown(app,()=>db.close());
+await app.listen({port:config.port,host:config.host});console.log(JSON.stringify({event:'listening',service:'mcp',port:config.port,profile:config.profile}));

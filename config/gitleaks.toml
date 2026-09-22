@@ -1,0 +1,11 @@
+title = "Engineering Learning admission — extend maintained default rules"
+[extend]
+useDefault = true
+[[rules]]
+id = "elm-auth-header"
+description = "Authorization headers are not learning content"
+regex = '''(?i)authorization[\s"']*:[\s"']*(bearer|basic)\s+[a-z0-9+/_.=-]{8,}'''
+[[rules]]
+id = "elm-private-key"
+description = "Private key headers are not learning content"
+regex = '''-----BEGIN [A-Z ]*PRIVATE KEY-----'''
