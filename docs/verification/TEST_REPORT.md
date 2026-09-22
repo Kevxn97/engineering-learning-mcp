@@ -3,18 +3,28 @@
 Development reference: 2026-09-22, Node 24.20.0, PostgreSQL 18.6, Gitleaks 8.30.1,
 Keycloak 26.7.4, official MCP SDK 2.0.0. Synthetic projects and actors only.
 
-Local executed evidence: the initial full `npm run verify` passed **41 tests**, with
-no skipped tests, including real SQL/domain/role/transport tests. Five subsequent
-withdrawal/feedback/derivation/outage/catalog tests passed separately. The repository
-now contains **46 tests** plus the live OIDC script and optional real browser branch.
-Use the final CI commit and job outcomes as the authoritative combined-run evidence.
+Local executed evidence: the final combined `npm run verify` passed **46 tests**,
+with **zero skipped tests**, including real PostgreSQL role/domain/transport tests,
+maintained Gitleaks scans, withdrawal, feedback, derivation, outage and scoped catalog
+checks. Source-boundary, dependency-lock and client-kit checks also passed. This was
+executed locally against PostgreSQL 18.6, not an in-memory substitute.
+
+Use the exact CI commit and job outcomes for the additional clean-install, container
+and Chromium-browser evidence. Native coding-client acceptance is separate.
 
 The live Keycloak HTTP test completed real code+PKCE, nonce/state, access-token
 validation, MCP proposal, cookie rotation, peer review, CSRF/Origin rejection and
 bearer rejection at review. It is not a native IDE test. Chromium navigation was
 blocked by the local environment's browser policy; that policy was not bypassed.
-A separate CI browser job runs on the actual reference containers and captures
-screenshots when successful. Do not mark it passed based on this paragraph.
+The separate CI browser job **passed** on the actual reference containers at commit
+`330bd3352929949fe7b3ace728d8f4c8506ca171`, run `35791190333`. It completed the
+real Keycloak flow and Chromium login, rendered the reviewed proposal at desktop
+and mobile sizes, and checked mobile horizontal overflow. Screenshots were visually
+inspected. This is not a test of every UI action or any native coding client.
+
+See `CI_REFERENCE_RUN.json` for the exact scope and failed capacity experiment.
+Clean install, 46-test correctness, tracked-source scan, dependency audit at the
+high-severity threshold, SBOM generation and container build passed in that run.
 
 | Master criterion | Evidence and exact scope |
 |---|---|
@@ -73,7 +83,10 @@ screenshots when successful. Do not mark it passed based on this paragraph.
 
 See LOCAL_CAPACITY_EXPERIMENT.json for a **failed** 10-rps profile, with its error
 count and scope. Gitleaks's cold process startup was significant. RLS search sets
-were optimized without bypassing grants. Resource saturation is reported as
+were optimized without bypassing grants. The lower local profile in
+LOCAL_LIGHT_LOAD.json completed 20/20 requests at 1 rps (p95 488 ms). The CI 10-rps
+profile still failed: 89/200 succeeded and 111 were rate-limited. Neither profile
+includes actual HTTP/OAuth/IDE overhead. Resource saturation is reported as
 RATE_LIMITED, not successful empty results. CI reports the capacity experiment
 separately with an artifact; correctness green does not close this gate.
 

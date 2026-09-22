@@ -1,0 +1,21 @@
+{
+  "scope": "synthetic domain service + real PostgreSQL + real secret scanner; excludes HTTP/OAuth/IDE",
+  "node": "v24.20.0",
+  "postgres": "18.6 (Debian 18.6-1.pgdg12+2)",
+  "cpu": "AMD EPYC 9V74 96-Core Processor",
+  "logical_cpus": 5,
+  "memory_gib": 6,
+  "corpus": 10000,
+  "users": 10,
+  "target_rps": 1,
+  "requests": 20,
+  "successes": 20,
+  "errors": 0,
+  "error_codes": {},
+  "elapsed_ms": 19469,
+  "p50_ms": 460,
+  "p95_ms": 488,
+  "p99_ms": 488,
+  "resource_cgroup_limit": {"cpu_cores": 4, "memory_gib": 4},
+  "resource_note": "OS-reported resources above are not the process cgroup limits. Latencies are from the limited local sandbox, not production qualification."
+}

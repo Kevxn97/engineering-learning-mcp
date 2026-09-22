@@ -27,7 +27,7 @@ jobs:
         with: {node-version: '24.20.0', cache: npm}
       - run: npm ci --ignore-scripts
       - run: scripts/install-gitleaks.sh "$RUNNER_TEMP/elm-bin"
-      - run: npm run verify
+      - run: mkdir -p artifacts && npm run verify | tee artifacts/verify.log
         env:
           ELM_TEST_ADMIN_URL: postgresql://postgres:synthetic-ci-only@127.0.0.1:5432/postgres
           ELM_GITLEAKS_BIN: ${{ runner.temp }}/elm-bin/gitleaks
@@ -36,7 +36,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/elm-source"
           git archive HEAD | tar -x -C "$RUNNER_TEMP/elm-source"
           "$RUNNER_TEMP/elm-bin/gitleaks" dir --config config/gitleaks.toml --no-banner --redact --ignore-gitleaks-allow "$RUNNER_TEMP/elm-source"
-      - run: npm audit --audit-level=high
+      - run: npm audit --audit-level=high --json > artifacts/dependency-audit.json
       - run: mkdir -p artifacts && npm sbom --sbom-format cyclonedx > artifacts/sbom.cdx.json
       - name: Capacity experiment (reported separately from correctness)
         run: npm run loadtest
@@ -44,6 +44,20 @@ jobs:
         env:
           ELM_TEST_ADMIN_URL: postgresql://postgres:synthetic-ci-only@127.0.0.1:5432/postgres
           ELM_GITLEAKS_BIN: ${{ runner.temp }}/elm-bin/gitleaks
+      - name: Report capacity separately and visibly
+        if: always()
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,appendFileSync,existsSync} from 'node:fs';
+          if (!existsSync('artifacts/loadtest.json')) {
+            appendFileSync(process.env.GITHUB_STEP_SUMMARY, '\nCapacity experiment: **NOT EXECUTED**.\n');
+          } else {
+            const r = JSON.parse(readFileSync('artifacts/loadtest.json','utf8'));
+            const met = r.errors === 0 && r.p95_ms <= 1000;
+            appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n## Capacity: ${met?'target met in this experiment':'TARGET NOT MET'}\n${r.successes}/${r.requests} successful, ${r.errors} errors; p95 of successful requests: ${r.p95_ms} ms.\nScope: ${r.scope}. A passing correctness job is not deployment approval.\n`);
+            if (!met) console.log('::warning::Capacity target NOT MET. Review artifacts/loadtest.json before any shared rollout.');
+          }
+          JS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with: {name: verification-artifacts, path: artifacts, retention-days: 7}
@@ -66,7 +80,7 @@ jobs:
             sleep 2
           done
           exit 1
-      - run: npm run test:e2e
+      - run: mkdir -p artifacts && npm run test:e2e | tee artifacts/oidc.log
         env: {ELM_BROWSER_E2E: 'true'}
       - name: Show bounded service logs on failure
         if: failure()
