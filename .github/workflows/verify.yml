@@ -1,0 +1,78 @@
+name: Verify engineering learning
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650
+        env:
+          POSTGRES_PASSWORD: synthetic-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 3s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: '24.20.0', cache: npm}
+      - run: npm ci --ignore-scripts
+      - run: scripts/install-gitleaks.sh "$RUNNER_TEMP/elm-bin"
+      - run: npm run verify
+        env:
+          ELM_TEST_ADMIN_URL: postgresql://postgres:synthetic-ci-only@127.0.0.1:5432/postgres
+          ELM_GITLEAKS_BIN: ${{ runner.temp }}/elm-bin/gitleaks
+      - name: Scan tracked source only, including fixture canaries constructed at runtime
+        run: |
+          mkdir -p "$RUNNER_TEMP/elm-source"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/elm-source"
+          "$RUNNER_TEMP/elm-bin/gitleaks" dir --config config/gitleaks.toml --no-banner --redact --ignore-gitleaks-allow "$RUNNER_TEMP/elm-source"
+      - run: npm audit --audit-level=high
+      - run: mkdir -p artifacts && npm sbom --sbom-format cyclonedx > artifacts/sbom.cdx.json
+      - name: Capacity experiment (reported separately from correctness)
+        run: npm run loadtest
+        continue-on-error: true
+        env:
+          ELM_TEST_ADMIN_URL: postgresql://postgres:synthetic-ci-only@127.0.0.1:5432/postgres
+          ELM_GITLEAKS_BIN: ${{ runner.temp }}/elm-bin/gitleaks
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with: {name: verification-artifacts, path: artifacts, retention-days: 7}
+  oidc-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: '24.20.0', cache: npm}
+      - run: npm ci --ignore-scripts && npm run build
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm run local:configure
+      - run: docker compose --env-file .local/compose.env -f compose.local.yml up -d --build
+      - name: Wait for authenticated applications to start
+        run: |
+          for i in $(seq 1 90); do
+            if curl -fsS http://localhost:4100/healthz >/dev/null && curl -fsS http://localhost:4101/healthz >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - run: npm run test:e2e
+        env: {ELM_BROWSER_E2E: 'true'}
+      - name: Show bounded service logs on failure
+        if: failure()
+        run: docker compose --env-file .local/compose.env -f compose.local.yml logs --tail=30 mcp review migrate
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with: {name: browser-evidence, path: artifacts, retention-days: 7}
+      - if: always()
+        run: docker compose --env-file .local/compose.env -f compose.local.yml down -v
